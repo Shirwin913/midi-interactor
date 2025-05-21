@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <title>MIDI 播放引擎</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2rem;
+      background: #f9f9f9;
+    }
+    button, select, input {
+      font-size: 1rem;
+      margin-top: 1rem;
+      padding: 0.5rem 1rem;
+    }
+    h2 {
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h2>🎵 MIDI 播放控制面板</h2>
+  <div id="note-preview" style="
+    font-size: 2rem;
+    text-align: center;
+    margin-top: 2rem;
+    font-weight: bold;
+    color: #333;
+    ">
+    下一拍音符：等待播放...
+  </div>
+
+  <label>🎹 選擇預設音色：</label>
+  <select id="sound-select">
+    <option value="piano">Piano</option>
+    <option value="cello">Cello</option>
+    <option value="pipeorgan">Pipe Organ</option>
+    <option value="violin">Violin</option>
+    <option value="Trombone">Trombone</option>
+  </select>
+
+  <br />
+
+  <input type="file" id="midi-upload" accept=".mid,.midi" />
+
+  <button id="play">▶ 播放</button>
+  <button id="pause">⏸ 暫停</button>
+  <button id="resume">⏵ 繼續</button>
+  <button id="stop">⏹ 停止</button>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.27/build/Midi.min.js"></script>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
