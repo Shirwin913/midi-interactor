@@ -1,55 +1,492 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
-<head>
-  <meta charset="UTF-8" />
-  <title>MIDI 播放引擎</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      padding: 2rem;
-      background: #f9f9f9;
-    }
-    button, select, input {
-      font-size: 1rem;
-      margin-top: 1rem;
-      padding: 0.5rem 1rem;
-    }
-    h2 {
-      margin-bottom: 1rem;
-    }
-  </style>
-</head>
-<body>
-  <h2>🎵 MIDI 播放控制面板</h2>
-  <div id="note-preview" style="
-    font-size: 2rem;
-    text-align: center;
-    margin-top: 2rem;
-    font-weight: bold;
-    color: #333;
-    ">
-    下一拍音符：等待播放...
-  </div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🎵 增強版 MIDI 視覺化播放器</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
-  <label>🎹 選擇預設音色：</label>
-  <select id="sound-select">
-    <option value="piano">Piano</option>
-    <option value="cello">Cello</option>
-    <option value="pipeorgan">Pipe Organ</option>
-    <option value="violin">Violin</option>
-    <option value="Trombone">Trombone</option>
-  </select>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        background: linear-gradient(135deg, #1e3c72, #2a5298);
+        color: white;
+        min-height: 100vh;
+        overflow-x: auto;
+      }
 
-  <br />
+      .header {
+        background: rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(10px);
+        padding: 1rem 2rem;
+        box-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+      }
 
-  <input type="file" id="midi-upload" accept=".mid,.midi" />
+      .header h1 {
+        font-size: 2rem;
+        font-weight: 300;
+        text-align: center;
+        margin-bottom: 1rem;
+        background: linear-gradient(45deg, #fff, #a8edea);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
 
-  <button id="play">▶ 播放</button>
-  <button id="pause">⏸ 暫停</button>
-  <button id="resume">⏵ 繼續</button>
-  <button id="stop">⏹ 停止</button>
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: center;
+        justify-content: center;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
 
-  <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.27/build/Midi.min.js"></script>
-  <script type="module" src="./js/main.js"></script>
-</body>
+      .control-group {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(255, 255, 255, 0.1);
+        padding: 0.5rem 1rem;
+        border-radius: 25px;
+        backdrop-filter: blur(5px);
+      }
+
+      .control-group label {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #e8f4f8;
+      }
+
+      button,
+      select,
+      input[type="file"] {
+        font-size: 0.95rem;
+        padding: 0.6rem 1.2rem;
+        border: none;
+        border-radius: 20px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        font-weight: 500;
+      }
+
+      button {
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        color: white;
+        position: relative;
+        overflow: hidden;
+      }
+
+      button:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+      }
+
+      button:active:not(:disabled) {
+        transform: translateY(0);
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      button.primary {
+        background: linear-gradient(45deg, #2ecc71, #27ae60);
+      }
+
+      button.danger {
+        background: linear-gradient(45deg, #e74c3c, #c0392b);
+      }
+
+      button.secondary {
+        background: linear-gradient(45deg, #f39c12, #e67e22);
+      }
+
+      select {
+        background: rgba(255, 255, 255, 0.9);
+        color: #333;
+        min-width: 150px;
+      }
+
+      input[type="file"] {
+        background: rgba(255, 255, 255, 0.9);
+        color: #333;
+        max-width: 200px;
+      }
+
+      input[type="file"]::file-selector-button {
+        background: linear-gradient(45deg, #3498db, #2980b9);
+        color: white;
+        border: none;
+        padding: 0.4rem 0.8rem;
+        border-radius: 15px;
+        margin-right: 0.5rem;
+        cursor: pointer;
+        font-size: 0.85rem;
+      }
+
+      .visualizer-container {
+        margin: 1.5rem;
+        background: rgba(0, 0, 0, 0.4);
+        border-radius: 15px;
+        padding: 0.8rem;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        overflow: auto;
+        position: relative;
+      }
+
+      .visualizer-container::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #667eea, #764ba2, #667eea);
+        background-size: 200% 100%;
+        animation: shimmer 3s ease-in-out infinite;
+      }
+
+      @keyframes shimmer {
+        0%,
+        100% {
+          background-position: 200% 0;
+        }
+        50% {
+          background-position: -200% 0;
+        }
+      }
+
+      #pixi-container {
+        border-radius: 10px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        background: #0a0a0a;
+        min-height: 300px;
+        max-height: 500px;
+        position: relative;
+        scroll-behavior: smooth;
+      }
+
+      #pixi-container canvas {
+        display: block;
+        height: auto;
+        min-width: 100%;
+      }
+
+      /* 自定義滾動條樣式 */
+      #pixi-container::-webkit-scrollbar {
+        height: 12px;
+      }
+
+      #pixi-container::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        margin: 5px;
+      }
+
+      #pixi-container::-webkit-scrollbar-thumb {
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        border-radius: 6px;
+        border: 2px solid #0a0a0a;
+      }
+
+      #pixi-container::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(90deg, #764ba2, #667eea);
+      }
+
+      /* 滾動控制按鈕樣式 */
+      #scroll-controls button:hover {
+        background: rgba(0, 0, 0, 0.9) !important;
+        transform: scale(1.1) !important;
+      }
+
+      /* 進度條容器樣式 */
+      #progress-bar-container {
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      #progress-bar-container:hover {
+        height: 24px !important;
+        bottom: 8px !important;
+      }
+
+      #progress-bar-container:hover #progress-bar {
+        box-shadow: 0 0 10px rgba(46, 204, 113, 0.5);
+      }
+
+      .info-panel {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        background: rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(10px);
+        padding: 0.5rem 0.8rem;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        font-size: 0.75rem;
+        line-height: 1.3;
+        max-width: 200px;
+        z-index: 999;
+        transition: all 0.3s ease;
+        opacity: 0.6;
+        transform: scale(0.85);
+      }
+
+      .info-panel:hover {
+        opacity: 1;
+        transform: scale(1);
+        background: rgba(0, 0, 0, 0.8);
+      }
+
+      .info-panel.collapsed {
+        padding: 0.3rem 0.5rem;
+        max-width: 60px;
+        overflow: hidden;
+      }
+
+      .info-panel.collapsed .panel-content {
+        display: none;
+      }
+
+      .info-panel .panel-toggle {
+        cursor: pointer;
+        font-size: 0.8rem;
+        color: #3498db;
+        font-weight: bold;
+        user-select: none;
+      }
+
+      .info-panel .panel-content {
+        margin-top: 0.3rem;
+      }
+
+      .info-panel h4 {
+        color: #3498db;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+      }
+
+      .info-panel ul {
+        list-style: none;
+        padding-left: 0;
+      }
+
+      .info-panel li {
+        margin-bottom: 0.3rem;
+        color: #bdc3c7;
+      }
+
+      .info-panel li strong {
+        color: #ecf0f1;
+      }
+
+      .status-bar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #2ecc71, #3498db, #9b59b6);
+        background-size: 200% 100%;
+        animation: statusFlow 4s ease-in-out infinite;
+        z-index: 1002;
+      }
+
+      @keyframes statusFlow {
+        0%,
+        100% {
+          background-position: 200% 0;
+        }
+        50% {
+          background-position: -200% 0;
+        }
+      }
+
+      .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(5px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        z-index: 2000;
+      }
+
+      .loading-spinner {
+        width: 60px;
+        height: 60px;
+        border: 4px solid rgba(255, 255, 255, 0.2);
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 1rem;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .loading-text {
+        color: white;
+        font-size: 1.1rem;
+        font-weight: 300;
+      }
+
+      @media (max-width: 768px) {
+        .header {
+          padding: 1rem;
+        }
+
+        .header h1 {
+          font-size: 1.5rem;
+        }
+
+        .controls {
+          flex-direction: column;
+          gap: 0.8rem;
+        }
+
+        .control-group {
+          width: 100%;
+          justify-content: center;
+        }
+
+        .visualizer-container {
+          margin: 1rem;
+          padding: 0.5rem;
+        }
+
+        .info-panel {
+          position: relative;
+          margin: 1rem;
+          max-width: none;
+        }
+      }
+
+      /* 自定義滾動條 */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        border-radius: 4px;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(45deg, #764ba2, #667eea);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="status-bar"></div>
+
+    <div class="header">
+      <h1>🎵 增強版 MIDI 視覺化播放器</h1>
+      <div class="controls">
+        <div class="control-group">
+          <label for="sound-select">🎹 音色選擇：</label>
+          <select id="sound-select">
+            <option value="piano">Piano 鋼琴</option>
+            <option value="cello">Cello 大提琴</option>
+            <option value="pipeorgan">Pipe Organ 管風琴</option>
+            <option value="violin">Violin 小提琴</option>
+            <option value="Trombone">Trombone 長號</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label for="midi-upload">📁 MIDI 檔案：</label>
+          <input type="file" id="midi-upload" accept=".mid,.midi" />
+        </div>
+
+        <div class="control-group">
+          <button id="play" class="primary">▶ 播放</button>
+          <button id="pause" class="secondary">⏸ 暫停</button>
+          <button id="resume" class="secondary">⏵ 繼續</button>
+          <button id="stop" class="danger">⏹ 停止</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="visualizer-container">
+      <div id="pixi-container"></div>
+    </div>
+
+    <div class="info-panel" id="info-panel">
+      <div class="panel-toggle" onclick="toggleInfoPanel()">🎹 說明</div>
+      <div class="panel-content">
+        <ul>
+          <li><strong>任意鍵：</strong>觸發音符</li>
+          <li><strong>空白鍵：</strong>播放/暫停</li>
+          <li><strong>ESC：</strong>停止</li>
+          <li><strong>滑鼠：</strong>觸發音符</li>
+          <li><strong>Ctrl+R：</strong>重新載入</li>
+          <li><strong>1-9：</strong>快速跳轉</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="loading-overlay" id="loading-overlay">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">正在處理 MIDI 檔案...</div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.27/build/Midi.min.js"></script>
+    <script>
+      // 切換操作說明面板
+      function toggleInfoPanel() {
+        const panel = document.getElementById("info-panel");
+        panel.classList.toggle("collapsed");
+      }
+
+      // 點擊面板外部時收縮面板
+      document.addEventListener("click", function (e) {
+        const panel = document.getElementById("info-panel");
+        if (
+          !panel.contains(e.target) &&
+          !panel.classList.contains("collapsed")
+        ) {
+          panel.classList.add("collapsed");
+        }
+      });
+
+      // 阻止面板內點擊事件冒泡
+      document
+        .getElementById("info-panel")
+        .addEventListener("click", function (e) {
+          e.stopPropagation();
+        });
+    </script>
+    <script type="module" src="./js/main.js"></script>
+  </body>
 </html>
